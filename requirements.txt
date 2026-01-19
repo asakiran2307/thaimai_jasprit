@@ -1,0 +1,9 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+gunicorn
+requests
+google-generativeai
+geopy
+pypdf
+psycopg2-binary
