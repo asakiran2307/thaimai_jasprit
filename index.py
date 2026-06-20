@@ -2049,12 +2049,18 @@ def patient_consultant():
         }
         headers = {'Content-Type': 'application/json'}
         url_with_key = f"{GEMINI_API_URL}?key={API_KEY}"
-        
+
+        if not API_KEY:
+            return jsonify({'error': 'AI service is not configured. Please contact the administrator.'}), 503
+
         MAX_RETRIES = 3
         for attempt in range(MAX_RETRIES):
             try:
-                response = requests.post(url_with_key, headers=headers, data=json.dumps(payload))
-                response.raise_for_status()
+                response = requests.post(url_with_key, headers=headers, data=json.dumps(payload), timeout=30)
+
+                if not response.ok:
+                    print(f"Gemini API error {response.status_code}: {response.text}")
+                    response.raise_for_status()
 
                 result = response.json()
                 model_response_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text')
@@ -2062,7 +2068,6 @@ def patient_consultant():
                 if model_response_text:
                     return jsonify({'reply': model_response_text})
                 else:
-                    # This will be caught by the final error message if all retries fail
                     raise ValueError("Model returned an empty or malformed response.")
 
             except (requests.exceptions.RequestException, KeyError, IndexError, json.JSONDecodeError, ValueError) as e:
@@ -2070,7 +2075,7 @@ def patient_consultant():
                 if attempt < MAX_RETRIES - 1:
                     time.sleep(2 ** attempt)
                 else:
-                    return jsonify({'error': "Connection Error: Failed to get a valid response from the AI after multiple retries."}), 500
+                    return jsonify({'error': "AI service is temporarily unavailable. Please try again in a moment."}), 503
 
     return render_template('patient_consultant.html')
 
