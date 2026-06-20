@@ -1,7 +1,10 @@
 import requests
 import json
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-API_KEY = "AIzaSyDtLulSVOmRtz11cdlX41zXM-aOaVV20-I"
+API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 payload = {

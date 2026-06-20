@@ -7,3 +7,4 @@ google-generativeai
 geopy
 pypdf
 psycopg2-binary
+python-dotenv

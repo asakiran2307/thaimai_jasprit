@@ -3,6 +3,8 @@ import json
 import time, operator
 import base64
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()
 
 # Flask and Web-related imports
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
@@ -1627,7 +1629,7 @@ login_manager.login_view = 'login_chooser'
 login_manager.login_message_category = 'info'
 
 # --- Gemini API Configuration ---
-API_KEY = "AIzaSyDtLulSVOmRtz11cdlX41zXM-aOaVV20-I"
+API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 
@@ -1638,6 +1640,10 @@ class Doctor(db.Model, UserMixin):
     mobile = db.Column(db.String(20), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     patients = db.relationship('Patient', backref='doctor', lazy=True)
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def get_id(self):
         return f"doctor-{self.id}"
@@ -1661,6 +1667,10 @@ class Patient(db.Model, UserMixin):
     emergency_contact_phone = db.Column(db.String(20))
     doctor_id = db.Column(db.Integer, db.ForeignKey('doctor.id'), nullable=False)
 
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
     def get_id(self):
         return f"patient-{self.id}"
 
@@ -1677,6 +1687,10 @@ class WellnessLog(db.Model):
 
     patient = db.relationship('Patient', backref=db.backref('wellness_logs', lazy=True))
 
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
 class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
@@ -1688,12 +1702,20 @@ class Appointment(db.Model):
     patient = db.relationship('Patient', backref=db.backref('appointments', lazy=True))
     doctor = db.relationship('Doctor', backref=db.backref('appointments', lazy=True))
 
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
 class Article(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(50), nullable=False)
     publish_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1704,6 +1726,10 @@ class Message(db.Model):
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     is_read = db.Column(db.Boolean, default=False)
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def get_sender(self):
         return Doctor.query.get(self.sender_id) if self.sender_type == 'doctor' else Patient.query.get(self.sender_id)
@@ -1724,6 +1750,10 @@ class Prescription(db.Model):
     patient = db.relationship('Patient', backref=db.backref('prescriptions', lazy=True))
     doctor = db.relationship('Doctor', backref=db.backref('prescriptions', lazy=True))
 
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, nullable=False)
@@ -1732,6 +1762,10 @@ class Notification(db.Model):
     link_url = db.Column(db.String(255))
     is_read = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1744,6 +1778,10 @@ class Document(db.Model):
 
     patient = db.relationship('Patient', backref=db.backref('documents', lazy=True))
 
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
 class DigitalDoulaLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
@@ -1752,6 +1790,10 @@ class DigitalDoulaLog(db.Model):
     content = db.Column(db.Text, nullable=False)
 
     patient = db.relationship('Patient', backref=db.backref('doula_logs', lazy=True))
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 # ==============================================================================
 # 4. USER SESSION MANAGEMENT (Flask-Login)
 # ==============================================================================
@@ -1978,7 +2020,7 @@ After the disclaimer, provide a structured response that includes:
 1.  **Suggested Potential Conditions:** (1-3 brief points).
 2.  **Recommended Next Steps:** (always include consulting a doctor, and other relevant advice like rest, hydration, monitoring, etc.).
 Keep your response empathetic, clear, and formatted with Markdown for better readability.
-""" 
+And finnaly give the best food tips and best food advices to their pain in very clear and basic english""" 
 
 @app.route('/patient/consultant', methods=['GET', 'POST'])
 @login_required
