@@ -1613,7 +1613,7 @@ TEMPLATES = {
 # ==============================================================================
 
 # --- Flask App Initialization ---
-app = Flask(__name__)
+app = Flask(__name__, instance_path="/tmp/thaimai_jasprit_instance")
 APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if APP_ENV == "production" and not SECRET_KEY:
@@ -1625,6 +1625,10 @@ APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# This project installs psycopg2-binary; explicitly select that driver so SQLAlchemy
+# does not try to import the uninstalled psycopg v3 package.
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 if APP_ENV == "production" and not DATABASE_URL:
     raise RuntimeError("DATABASE_URL must be configured in production.")
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL or "sqlite:///thaimai_jasprit.db"
