@@ -2899,7 +2899,12 @@ def create_initial_data():
 # 9. APPLICATION RUNNER
 # ==============================================================================
 
+# On Vercel, this module is imported by the Python runtime rather than executed
+# as __main__. Run the idempotent schema/demo initializer only when explicitly
+# enabled for production. Disable SEED_DEMO_DATA after the demo accounts exist.
+if APP_ENV == "production" and SEED_DEMO_DATA:
+    create_initial_data()
+
 if __name__ == '__main__':
-    # The create_initial_data function will handle table creation and seeding
     create_initial_data()
     app.run(debug=APP_ENV != "production")
