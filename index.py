@@ -1619,7 +1619,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 if APP_ENV == "production" and not SECRET_KEY:
     raise RuntimeError("SECRET_KEY must be configured in production.")
 app.config["SECRET_KEY"] = SECRET_KEY or "development-only-change-this-secret"
-# --- Use the provided PostgreSQL Database URL ---
+# --- Database connection is supplied through environment configuration ---
 # Keep database credentials outside source control. SQLite is only a local-development fallback.
 APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
@@ -1866,7 +1866,7 @@ def login_doctor():
             flash(f'Welcome back, {doctor.name}!', 'success')
             return redirect(url_for('doctor_dashboard'))
         else:
-            flash('Invalid username or mobile number. Please try again.', 'danger')
+            flash('Invalid username or password. Please try again.', 'danger')
     return render_template('login_doctor.html')
 
 @app.route('/register/patient', methods=['GET', 'POST'])
