@@ -1645,6 +1645,7 @@ login_manager.login_message_category = 'info'
 
 # --- Gemini API Configuration ---
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
+SEED_DEMO_DATA = os.environ.get("SEED_DEMO_DATA", "true" if APP_ENV != "production" else "false").strip().lower() in {"1", "true", "yes"}
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 
@@ -2830,19 +2831,21 @@ def create_initial_data():
             print(f"Database already initialized or error occurred: {e}")
         
         # Check if the doctor table is empty before seeding
-        if not Doctor.query.first():
-            print("Database is empty. Seeding with initial data...")
+        if not Doctor.query.first() and SEED_DEMO_DATA:
+            print("Database is empty. Seeding with initial demo data...")
+            doctor_password = os.environ.get("INITIAL_DOCTOR_PASSWORD", "password_placeholder")
+            patient_password = os.environ.get("INITIAL_PATIENT_PASSWORD", "password123")
             doctor1 = Doctor(
                 name="Dr. Emily Carter",
                 mobile="5550001111",
-                password_hash=generate_password_hash("password_placeholder")
+                password_hash=generate_password_hash(doctor_password)
             )
             db.session.add(doctor1)
             
             patient1 = Patient(
                 name="Jane Doe",
                 email="jane.doe@example.com",
-                password_hash=generate_password_hash("password123"),
+                password_hash=generate_password_hash(patient_password),
                 mobile="5551234567",
                 address="123 Wellness Ave, Healthville",
                 dob=datetime.strptime("1995-05-20", "%Y-%m-%d").date(),
@@ -2895,4 +2898,4 @@ def create_initial_data():
 if __name__ == '__main__':
     # The create_initial_data function will handle table creation and seeding
     create_initial_data()
-    app.run(debug=True)
+    app.run(debug=APP_ENV != "production")
