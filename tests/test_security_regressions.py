@@ -10,6 +10,10 @@ SOURCE = (Path(__file__).resolve().parents[1] / "index.py").read_text(encoding="
 
 
 class SecurityRegressionTests(unittest.TestCase):
+    def test_dict_loader_is_imported_before_template_loader_setup(self):
+        self.assertIn("from jinja2 import BaseLoader, DictLoader, TemplateNotFound", SOURCE)
+        self.assertIn("app.jinja_loader = DictLoader(TEMPLATES)", SOURCE)
+
     def test_database_credentials_are_loaded_from_environment(self):
         self.assertIn('os.environ.get("DATABASE_URL"', SOURCE)
         self.assertNotIn("postgresql://neondb_owner:", SOURCE)
