@@ -332,11 +332,11 @@ LOGIN_PATIENT_HTML = """
                 <form method="POST" action="{{ url_for('login_patient') }}">
                     <div class="mb-3">
                         <label for="email" class="form-label">Email address</label>
-                        <input type="email" class="form-control" id="email" name="email" required value="jane.doe@example.com">
+                        <input type="email" class="form-control" id="email" name="email" required>
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required value="password123">
+                        <input type="password" class="form-control" id="password" name="password" required>
                     </div>
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">Login</button>
@@ -367,8 +367,8 @@ LOGIN_DOCTOR_HTML = """
                         <input type="text" class="form-control" id="username" name="username" required value="Dr. Emily Carter">
                     </div>
                     <div class="mb-3">
-                        <label for="password" class="form-label">Password (Your Mobile Number)</label>
-                        <input type="password" class="form-control" id="password" name="password" required value="5550001111">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
                     </div>
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">Login</button>
@@ -1549,7 +1549,7 @@ DIGITAL_DOULA_HTML = """
         <div id="chat-window" class="p-3 rounded mb-3">
             {% for log in chat_logs %}
                 <div class="{{ 'user-msg' if log.message_from == 'patient' else 'ai-msg' }}">
-                    {{ log.content|safe }}
+                    {{ log.content }}
                 </div>
             {% endfor %}
         </div>
@@ -1614,10 +1614,25 @@ TEMPLATES = {
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'a_very_secret_key_for_maternal_health_app'
+APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if APP_ENV == "production" and not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY must be configured in production.")
+app.config["SECRET_KEY"] = SECRET_KEY or "development-only-change-this-secret"
 # --- Use the provided PostgreSQL Database URL ---
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_Z1XQUFT0YhBI@ep-delicate-mountain-adckue32-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Keep database credentials outside source control. SQLite is only a local-development fallback.
+APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+if APP_ENV == "production" and not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL must be configured in production.")
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL or "sqlite:///thaimai_jasprit.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = APP_ENV == "production"
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024))
 
 # --- Custom Jinja2 Loader ---
 app.jinja_loader = DictLoader(TEMPLATES)
@@ -1845,7 +1860,7 @@ def login_doctor():
         password = request.form.get('password')
         doctor = Doctor.query.filter_by(name=username).first()
 
-        if doctor and doctor.mobile == password:
+        if doctor and check_password_hash(doctor.password_hash, password):
             login_user(doctor)
             session['user_type'] = 'doctor'
             flash(f'Welcome back, {doctor.name}!', 'success')
@@ -1997,11 +2012,16 @@ def patient_documents():
         file = request.files.get('file')
         description = request.form.get('description')
         if file and file.filename != '':
+            file_data = file.read(app.config["MAX_CONTENT_LENGTH"] + 1)
+            if len(file_data) > app.config["MAX_CONTENT_LENGTH"]:
+                flash('File is too large. Please upload a document smaller than 10 MB.', 'danger')
+                return redirect(url_for('patient_documents'))
+
             new_doc = Document(
                 patient_id=current_user.id,
                 file_name=file.filename,
                 description=description,
-                file_data=file.read(),
+                file_data=file_data,
                 mime_type=file.mimetype
             )
             db.session.add(new_doc)
@@ -2029,14 +2049,35 @@ def patient_consultant():
         return redirect(url_for('home'))
         
     if request.method == 'POST':
-        user_input = request.json.get('message')
-        chat_history = request.json.get('history', [])
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'A valid JSON object is required.'}), 400
 
-        if not user_input:
-            return jsonify({'error': 'Empty message received.'}), 400
+        user_input = data.get('message')
+        if not isinstance(user_input, str) or not user_input.strip():
+            return jsonify({'error': 'A non-empty message is required.'}), 400
+        if len(user_input) > 4000:
+            return jsonify({'error': 'Message is too long. Please keep it under 4,000 characters.'}), 413
 
-        # Append the new user message to the history for the API call
-        chat_history.append({'role': 'user', 'text': user_input})
+        raw_history = data.get('history', [])
+        if not isinstance(raw_history, list):
+            return jsonify({'error': 'Chat history must be a list.'}), 400
+
+        # Keep the request bounded and accept only the expected message shape.
+        chat_history = []
+        for item in raw_history[-20:]:
+            if not isinstance(item, dict):
+                return jsonify({'error': 'Chat history contains an invalid message.'}), 400
+            role = item.get('role')
+            text_value = item.get('text')
+            if role not in ('user', 'model') or not isinstance(text_value, str):
+                return jsonify({'error': 'Chat history contains an invalid message.'}), 400
+            if len(text_value) > 4000:
+                return jsonify({'error': 'A chat-history message is too long.'}), 413
+            chat_history.append({'role': role, 'text': text_value})
+
+        # Append the new user message after validating the supplied history.
+        chat_history.append({'role': 'user', 'text': user_input.strip()})
 
         # Prepare payload for the requests-based API call
         contents = [
