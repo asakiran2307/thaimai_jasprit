@@ -39,6 +39,15 @@ class SecurityRegressionTests(unittest.TestCase):
         self.assertIn("{{ log.content }}", SOURCE)
         self.assertNotIn("{{ log.content|safe }}", SOURCE)
 
+    def test_demo_accounts_are_not_seeded_in_production_by_default(self):
+        self.assertIn('"true" if APP_ENV != "production" else "false"', SOURCE)
+        self.assertIn('if not Doctor.query.first() and SEED_DEMO_DATA:', SOURCE)
+        self.assertIn('os.environ.get("INITIAL_DOCTOR_PASSWORD"', SOURCE)
+        self.assertIn('os.environ.get("INITIAL_PATIENT_PASSWORD"', SOURCE)
+
+    def test_development_server_debug_is_disabled_in_production(self):
+        self.assertIn('app.run(debug=APP_ENV != "production")', SOURCE)
+
     def test_upload_size_is_bounded(self):
         self.assertIn('app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024))', SOURCE)
         self.assertIn('file.read(app.config["MAX_CONTENT_LENGTH"] + 1)', SOURCE)
