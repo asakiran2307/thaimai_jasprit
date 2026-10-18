@@ -2837,8 +2837,8 @@ def create_initial_data():
         # Check if the doctor table is empty before seeding
         if not Doctor.query.first() and SEED_DEMO_DATA:
             print("Database is empty. Seeding with initial demo data...")
-            doctor_password = os.environ.get("INITIAL_DOCTOR_PASSWORD", "password_placeholder")
-            patient_password = os.environ.get("INITIAL_PATIENT_PASSWORD", "password123")
+            doctor_password = os.environ.get("INITIAL_DOCTOR_PASSWORD", "DemoDoctor#2026")
+            patient_password = os.environ.get("INITIAL_PATIENT_PASSWORD", "DemoPatient#2026")
             doctor1 = Doctor(
                 name="Dr. Emily Carter",
                 mobile="5550001111",
